@@ -2,7 +2,6 @@ package sqlte
 
 import (
 	"fmt"
-	"github.com/go-xe2/x/os/xlog"
 	"github.com/hashicorp/hcl"
 	"path/filepath"
 	"strings"
@@ -11,15 +10,15 @@ import (
 )
 
 type SqlTemplateManager struct {
-	Complete *template.Template
+	Compile *template.Template
 	fileTemplates map[string]*SqlTemplate
 	rw sync.RWMutex
 }
 
-var Template = SqlTemplateManager{}.New()
+var TemplateManager = SqlTemplateManager{}.New()
 
 func (it SqlTemplateManager) New() SqlTemplateManager  {
-	it.Complete = template.New("main")
+	it.Compile = template.New("main")
 	it.fileTemplates = make(map[string]*SqlTemplate)
 	return it
 }
@@ -35,13 +34,11 @@ func (it *SqlTemplateManager) GetTemplate(dboName string) *SqlTemplate {
 }
 
 func enumDirFiles(loader SqlLoader, fileList *[]string, path string) error {
-	fmt.Println("enumDirFiles path:", path)
 	dirs, err := loader.ReadDir(path)
 	if err != nil {
 		return fmt.Errorf("读取目录%s出错:%s", DefaultSqlteOptions.TemplateDirName, err)
 	}
 	for _, dir := range dirs {
-		fmt.Println("====>>", dir.Name(), " is dir:", dir.IsDir())
 		if dir.IsDir() {
 			if dir.Name() == "." {
 				continue
@@ -67,7 +64,6 @@ func (it *SqlTemplateManager) loadSqlTemplateFiles(loader SqlLoader) {
 	if err := enumDirFiles(loader, &fileList, DefaultSqlteOptions.TemplateDirName); err != nil {
 		panic(err)
 	}
-	xlog.Info("fileList:", fileList)
 	it.rw.Lock()
 	defer it.rw.Unlock()
 	for _, fileName := range fileList {
@@ -89,18 +85,21 @@ func (it *SqlTemplateManager) loadSqlTemplateFiles(loader SqlLoader) {
 			existsTpl = tmp
 		} else {
 			existsTpl = SqlTemplate{}.New(it)
+			existsTpl.DboName = dboName
 		}
 		// 合并
 		for k, v := range tpl.Select {
+			CompileName := fmt.Sprintf("%s.%s", dboName, k)
 			existsTpl.Select[k] = v
-			_, err := it.Complete.New(k).Parse(v)
+			_, err := it.Compile.New(CompileName).Parse(v)
 			if err != nil {
 				panic(err)
 			}
 		}
 		for k, v := range tpl.Execute {
+			CompileName := fmt.Sprintf("%s.%s", dboName, k)
 			existsTpl.Execute[k] = v
-			_, err := it.Complete.New(k).Parse(v)
+			_, err := it.Compile.New(CompileName).Parse(v)
 			if err != nil {
 				panic(err)
 			}

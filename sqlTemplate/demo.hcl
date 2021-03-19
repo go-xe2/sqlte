@@ -5,11 +5,6 @@ select {
   queryRows = <<SQL
       select * from mny_order_master where order_id in(
         select order_id from mny_buyer_order where buyer_id = :buyer_id
-        {{if .page -}}
-           LIMIT {{.page.Offset}},{{.page.PageSize -}}
-        {{else -}}
-           LIMIT 0, 30
-        {{end -}}
       )
       {{if ge .status 0 -}}
         and status = :status
@@ -19,6 +14,11 @@ select {
       {{end -}}
       {{if ge .end_date 0 -}}
         and order_date <= :end_date
+      {{end -}}
+      {{if .page -}}
+        LIMIT {{.page.Offset}},{{.page.PageSize -}}
+      {{else -}}
+         LIMIT 0, 30
       {{end -}}
     SQL
 
